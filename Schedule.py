@@ -33,8 +33,28 @@ class Schedule:
                 return session  # Возвращаем найденную торговую сессию
         return None  # Если время попадает в клиринг/перерыв, то торговой сессии нет
 
+    def get_last_session_time_end(self, dt_market: datetime) -> datetime:
+        """Дата и время окончания предыдущей торговой сессии по дате и времени на бирже
+
+        :param datetime dt_market: Дата и время на бирже
+        :return: Дата и время окончания предыдущей торговой сессии
+        """
+        if dt_market.weekday() in (5, 6):  # Если выходной день
+            return datetime.combine((dt_market - timedelta(days=dt_market.weekday()-4)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии пятницы
+        t_market = dt_market.time()  # Время на бирже
+        if dt_market.weekday() == 0 and t_market < self.trade_sessions[0].time_begin:  # Если утро понедельника до начала торгов
+            return datetime.combine((dt_market - timedelta(days=3)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии пятницы
+        i = -1  # Номер сессии, до которой не дошло время на бирже
+        for session in self.trade_sessions:  # Пробегаемся по всем торговым сессиям
+            if t_market < session.time_end:  # Если время на бирже не дошло до времени начала сессии
+                break  # то сессия найдена, выходим, больше не ищем
+            i += 1  # До этой сессии время на бирже дошло, переходим к следующей сессии
+        if i == -1:  # Если последняя торговая сессия была вчера
+            return datetime.combine((dt_market - timedelta(days=1)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии вчера
+        return datetime.combine(dt_market.date(), self.trade_sessions[i].time_end)  # Окончание последней сессии сегодня
+
     def time_until_trade(self, dt_market: datetime) -> timedelta:
-        """Время, через которое можжно будет торговать
+        """Время, через которое можно будет торговать
 
         :param datetime dt_market: Дата и время на бирже
         :return: Время, через которое можжно будет торговать. 0 секунд, если торговать можно прямо сейчас
@@ -56,16 +76,30 @@ class Schedule:
         dt_next_session = datetime(d_market.year, d_market.month, d_market.day, session.time_begin.hour, session.time_begin.minute, session.time_begin.second)
         return dt_next_session - dt_market
 
-    def get_trade_bar_datetime(self, market_datetime, time_frame):
-        """Дата и время открытия бара на бирже. Для сессии последний открытый бар. В перерывах - следующий бар
+    def get_trade_bar_open_datetime(self, dt_market, time_frame) -> datetime:
+        """Дата и время открытия бара на бирже. Если идет торговая сессия, то последний открытый бар. В перерывах - последний сформированный бар
 
-        :param datetime market_datetime: Дата и время на бирже
+        :param datetime dt_market: Дата и время на бирже
         :param timedelta time_frame: Временной интервал
         :return: Дата и время открытия бара на бирже
         """
-        dt = market_datetime.replace(microsecond=0)  # Время без микросекунд
+        dt = dt_market.replace(microsecond=0)  # Дата и время на бирже без микросекунд
         session = self.get_trade_session(dt)  # Пробуем получить торговую сессию
-        return dt + timedelta(seconds=-int(dt.timestamp() % time_frame.seconds) if session else self.time_until_trade(dt).seconds)
+        if not session:  # Если перерыв
+            dt = self.get_last_session_time_end(dt)  # Дата и время окончания предыдущей торговой сессии
+        ts = self.msk_datetime_to_utc_timestamp(dt)  # МСК -> timestamp
+        td = timedelta(seconds=-int(ts % time_frame.total_seconds()))  # Кол-во секунд, прошедших с начала последнего открытого бара
+        return dt + td
+
+    def get_trade_bar_request_datetime(self, dt_open, time_frame) -> datetime:
+        """Дата и время запроса бара на бирже. Если идет торговая сессия, то на открытии следующего бара. В перерывах - в начале следующей сессии
+
+        :param datetime dt_open: Дата и время открытия бара
+        :param timedelta time_frame: Временной интервал
+        :return: Дата и время запроса бара на бирже
+        """
+        dt = dt_open + time_frame  # Возможная дата и время открытия следующего бара
+        return dt + timedelta(seconds=self.time_until_trade(dt).total_seconds())  # Если в перерыве, то добавляем время до начала следующей сессии
 
     def utc_to_msk_datetime(self, dt, tzinfo=False) -> datetime:
         """Перевод времени из UTC в московское
