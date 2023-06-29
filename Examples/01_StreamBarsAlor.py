@@ -20,19 +20,19 @@ if __name__ == '__main__':  # Точка входа при запуске это
     schedule = MOEXFutures()  # Расписание срочного рынка Московской биржи
 
     ap_provider = AlorPy(Config.UserName, Config.RefreshToken)  # Провайдер работает со счетом по токену (из файла Config.py) Подключаемся к торговому счету
-    tf = 'D' if time_frame == timedelta(days=1) else 'W' if time_frame == timedelta(weeks=1) else time_frame.total_seconds()  # Временной интервал для дневок, неделек и интрадея
+    tf = 'D' if time_frame == timedelta(days=1) else 'W' if time_frame == timedelta(weeks=1) else time_frame.seconds  # Временной интервал для дневок, неделек и интрадея
     while True:
         market_datetime_now = schedule.utc_to_msk_datetime(datetime.utcnow())  # Текущее время на бирже
         print('\nТекущее время на бирже:', market_datetime_now)
         trade_bar_open_datetime = schedule.get_trade_bar_open_datetime(market_datetime_now, time_frame)  # Дата и время бара, который будем получать
         print('Будем получать бар:', trade_bar_open_datetime, 'UTC+03')
         seconds_from = schedule.msk_datetime_to_utc_timestamp(trade_bar_open_datetime)  # Дата и время бара в timestamp UTC
-        # print(trade_bar_datetime, '->', seconds_from, '->', schedule.utc_timestamp_to_msk_datetime(seconds_from))
+        # print(trade_bar_open_datetime, '->', seconds_from, '->', schedule.utc_timestamp_to_msk_datetime(seconds_from))
         trade_bar_request_datetime = schedule.get_trade_bar_request_datetime(trade_bar_open_datetime, time_frame)  # Дата и время запроса бара на бирже
         print('Время запроса бара:', trade_bar_request_datetime)
-        sleep_time = trade_bar_request_datetime - market_datetime_now + delta  # Время ожидания
-        print('Одижание в секундах:', sleep_time.total_seconds())
-        sleep(sleep_time.total_seconds())  # Ждем
+        sleep_time = (trade_bar_request_datetime - market_datetime_now + delta).total_seconds()  # Время ожидания в секундах
+        print('Одижание в секундах:', sleep_time)
+        sleep(sleep_time)  # Ждем
         bars = ap_provider.get_history(exchange, symbol, tf, seconds_from)['history']  # Получаем последний сформированный и текущий несформированный (если имеется) бары
         # print(bars)
         if len(bars) == 0:  # Если бары не получены
