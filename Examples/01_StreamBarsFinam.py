@@ -13,6 +13,14 @@ from google.protobuf.json_format import MessageToDict
 
 
 def stream_bars(board, code, schedule, time_frame, delta):
+    """Поток получения новых бар по расписанию биржи
+
+    :param str board: Торговая площадка
+    :param str code: Тикер
+    :param MOEXStocks|MOEXFutures schedule: Расписание торгов
+    :param timedelta time_frame: Временной интервал
+    :param timedelta delta: Смещение в будущее, чтобы гарантированно получить сформированный бар
+    """
     fp_provider = FinamPy(Config.AccessToken)  # Провайдер Finam
     if time_frame == timedelta(minutes=1):  # 1 минута
         tf = IntradayCandleTimeFrame.INTRADAYCANDLE_TIMEFRAME_M1
@@ -42,7 +50,7 @@ def stream_bars(board, code, schedule, time_frame, delta):
         trade_bar_request_datetime = schedule.get_trade_bar_request_datetime(trade_bar_open_datetime, time_frame)  # Дата и время запроса бара на бирже
         print('Время запроса бара:', trade_bar_request_datetime)
         sleep_time_secs = (trade_bar_request_datetime - market_datetime_now + delta).total_seconds()  # Время ожидания в секундах
-        print('Одижание в секундах:', sleep_time_secs)
+        print('Ожидание в секундах:', sleep_time_secs)
         exit_event_set = exit_event.wait(sleep_time_secs)  # Ждем нового бара или события выхода из потока
         if exit_event_set:  # Если произошло событие выхода из потока
             fp_provider.close_channel()  # Закрываем канал перед выходом
@@ -52,7 +60,7 @@ def stream_bars(board, code, schedule, time_frame, delta):
         from_ = getattr(interval, 'from')  # т.к. from - ключевое слово в Python, то получаем атрибут from из атрибута интервала
         if intraday:  # Для интрадея datetime -> Timestamp
             seconds_from = schedule.msk_datetime_to_utc_timestamp(trade_bar_open_datetime)  # Дата и время бара в timestamp UTC
-            date_from = Timestamp(seconds=seconds_from, nanos=trade_bar_open_datetime_utc.microsecond * 1_000)
+            date_from = Timestamp(seconds=seconds_from, nanos=trade_bar_open_datetime_utc.microsecond * 1_000)  # Дата и время бара в Google Timestamp UTC
             from_.seconds = date_from.seconds
             from_.nanos = date_from.nanos
         else:  # Для дневных интервалов и выше datetime -> Date
@@ -81,12 +89,12 @@ def stream_bars(board, code, schedule, time_frame, delta):
 
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
-    # board = 'TQBR'  # Код площадки
-    # code = 'SBER'  # Тикер
-    board = 'FUT'  # Код площадки
-    code = 'SiU3'  # Формат фьючерса: <Тикер><Месяц экспирации><Последняя цифра года> Месяц экспирации: 3-H, 6-M, 9-U, 12-Z
-    # schedule = MOEXStocks()  # Расписание фондового рынка Московской биржи
-    schedule = MOEXFutures()  # Расписание срочного рынка Московской биржи
+    board = 'TQBR'  # Код площадки
+    code = 'SBER'  # Тикер
+    # board = 'FUT'  # Код площадки
+    # code = 'SiU3'  # Формат фьючерса: <Тикер><Месяц экспирации><Последняя цифра года> Месяц экспирации: 3-H, 6-M, 9-U, 12-Z
+    schedule = MOEXStocks()  # Расписание фондового рынка Московской биржи
+    # schedule = MOEXFutures()  # Расписание срочного рынка Московской биржи
     time_frame = timedelta(minutes=1)  # 1 минута
     # time_frame = timedelta(minutes=5)  # 5 минут
     # time_frame = timedelta(minutes=15)  # 15 минут

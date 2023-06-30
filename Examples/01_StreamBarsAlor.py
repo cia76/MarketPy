@@ -8,6 +8,14 @@ from AlorPy.Config import Config  # Файл конфигурации
 
 
 def stream_bars(exchange, symbol, schedule, time_frame, delta):
+    """Поток получения новых бар по расписанию биржи
+
+    :param str exchange: Биржа 'MOEX' или 'SPBX'
+    :param str symbol: Тикер
+    :param MOEXStocks|MOEXFutures schedule: Расписание торгов
+    :param timedelta time_frame: Временной интервал
+    :param timedelta delta: Смещение в будущее, чтобы гарантированно получить сформированный бар
+    """
     ap_provider = AlorPy(Config.UserName, Config.RefreshToken)  # Провайдер Alor
     tf = 'D' if time_frame == timedelta(days=1) else 'W' if time_frame == timedelta(weeks=1) else time_frame.seconds  # Временной интервал для дневок, неделек и интрадея
     while True:
@@ -18,7 +26,7 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
         trade_bar_request_datetime = schedule.get_trade_bar_request_datetime(trade_bar_open_datetime, time_frame)  # Дата и время запроса бара на бирже
         print('Время запроса бара:', trade_bar_request_datetime)
         sleep_time_secs = (trade_bar_request_datetime - market_datetime_now + delta).total_seconds()  # Время ожидания в секундах
-        print('Одижание в секундах:', sleep_time_secs)
+        print('Ожидание в секундах:', sleep_time_secs)
         exit_event_set = exit_event.wait(sleep_time_secs)  # Ждем нового бара или события выхода из потока
         if exit_event_set:  # Если произошло событие выхода из потока
             ap_provider.close_web_socket()  # Перед выходом закрываем соединение с WebSocket
@@ -47,10 +55,10 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
     exchange = 'MOEX'  # Биржа 'MOEX' или 'SPBX'
-    # symbol = 'SBER'  # Тикер
-    symbol = 'SiU3'  # Формат фьючерса: <Тикер><Месяц экспирации><Последняя цифра года> Месяц экспирации: 3-H, 6-M, 9-U, 12-Z
-    # schedule = MOEXStocks()  # Расписание фондового рынка Московской биржи
-    schedule = MOEXFutures()  # Расписание срочного рынка Московской биржи
+    symbol = 'SBER'  # Тикер
+    # symbol = 'SiU3'  # Формат фьючерса: <Тикер><Месяц экспирации><Последняя цифра года> Месяц экспирации: 3-H, 6-M, 9-U, 12-Z
+    schedule = MOEXStocks()  # Расписание фондового рынка Московской биржи
+    # schedule = MOEXFutures()  # Расписание срочного рынка Московской биржи
     time_frame = timedelta(minutes=1)  # 1 минута
     # time_frame = timedelta(minutes=5)  # 5 минут
     # time_frame = timedelta(minutes=15)  # 15 минут
@@ -61,5 +69,5 @@ if __name__ == '__main__':  # Точка входа при запуске это
     exit_event = Event()  # Определяем событие выхода из потока
     stream_bars_thread = Thread(name='stream_bars', target=stream_bars, args=(exchange, symbol, schedule, time_frame, delta))  # Создаем поток получения новых бар
     stream_bars_thread.start()  # Запускаем поток
-    input()  # Ожидаем нажатия на клавиши Ввод (Enter)
+    input()  # Ожидаем нажатия на клавишу Ввод (Enter)
     exit_event.set()  # Устанавливаем событие выхода из потока
