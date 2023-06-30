@@ -15,7 +15,6 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
         print('\nТекущее время на бирже:', market_datetime_now)
         trade_bar_open_datetime = schedule.get_trade_bar_open_datetime(market_datetime_now, time_frame)  # Дата и время бара, который будем получать
         print('Будем получать бар:', trade_bar_open_datetime, 'UTC+03')
-        seconds_from = schedule.msk_datetime_to_utc_timestamp(trade_bar_open_datetime)  # Дата и время бара в timestamp UTC
         trade_bar_request_datetime = schedule.get_trade_bar_request_datetime(trade_bar_open_datetime, time_frame)  # Дата и время запроса бара на бирже
         print('Время запроса бара:', trade_bar_request_datetime)
         sleep_time_secs = (trade_bar_request_datetime - market_datetime_now + delta).total_seconds()  # Время ожидания в секундах
@@ -24,6 +23,8 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
         if exit_event_set:  # Если произошло событие выхода из потока
             ap_provider.close_web_socket()  # Перед выходом закрываем соединение с WebSocket
             return  # Выходим из потока, дальше не продолжаем
+
+        seconds_from = schedule.msk_datetime_to_utc_timestamp(trade_bar_open_datetime)  # Дата и время бара в timestamp UTC
         bars = ap_provider.get_history(exchange, symbol, tf, seconds_from)  # Получаем ответ на запрос истории рынка
         if not bars:  # Если ничего не получили
             print('Данные не получены')
@@ -33,6 +34,7 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
         if len(bars) == 0:  # Если бары не получены
             print('Бар не получен')
             continue  # Будем получать следующий бар
+
         bar = bars[0]  # Получаем первый (завершенный) бар
         dt = schedule.utc_timestamp_to_msk_datetime(int(bar['time']))
         open_ = float(bar['open'])
