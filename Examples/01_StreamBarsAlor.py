@@ -1,7 +1,7 @@
 from threading import Thread, Event
 from datetime import datetime, timedelta
 
-from MarketPy.Schedule import MOEXStocks, MOEXFutures
+from MarketPy.Schedule import Schedule, MOEXStocks, MOEXFutures
 
 from AlorPy import AlorPy  # Работа с Alor OpenAPI V2
 from AlorPy.Config import Config  # Файл конфигурации
@@ -12,12 +12,12 @@ def stream_bars(exchange, symbol, schedule, time_frame, delta):
 
     :param str exchange: Биржа 'MOEX' или 'SPBX'
     :param str symbol: Тикер
-    :param MOEXStocks|MOEXFutures schedule: Расписание торгов
+    :param Schedule schedule: Расписание торгов
     :param timedelta time_frame: Временной интервал
     :param timedelta delta: Смещение в будущее, чтобы гарантированно получить сформированный бар
     """
     ap_provider = AlorPy(Config.UserName, Config.RefreshToken)  # Провайдер Alor
-    tf = 'D' if time_frame == timedelta(days=1) else 'W' if time_frame == timedelta(weeks=1) else time_frame.seconds  # Временной интервал для дневок, неделек и интрадея
+    tf = 'D' if time_frame == timedelta(days=1) else 'W' if time_frame == timedelta(weeks=1) else str(time_frame.seconds)  # Временной интервал для дневок, неделек и интрадея
     while True:
         market_datetime_now = schedule.utc_to_msk_datetime(datetime.utcnow())  # Текущее время на бирже
         print('\nТекущее время на бирже:', market_datetime_now)

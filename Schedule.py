@@ -16,8 +16,9 @@ class Schedule:
     """Расписание торгов"""
     market_timezone = timezone('Europe/Moscow')  # ВременнАя зона работы биржи
 
-    def __init__(self, trade_sessions: list[Session]):
+    def __init__(self, trade_sessions: list[Session], delta=timedelta(seconds=3)):
         self.trade_sessions = sorted(trade_sessions, key=lambda session: session.time_begin)  # Список торговых сессий сортируем по возрастанию времени начала сессии
+        self.delta = delta  # Смещение в будущее, чтобы гарантированно получить сформированный бар
 
     def get_trade_session(self, dt_market: datetime) -> Union[Session, None]:
         """Торговая сессия по дате и времени на бирже
@@ -25,7 +26,7 @@ class Schedule:
         :param datetime dt_market: Дата и время на бирже
         :return: Дата и время на бирже. None, если торги не идут
         """
-        if dt_market.weekday() in (5, 6):  # Если задан выходной день
+        if dt_market.weekday() in (5, 6):  # Если задан выходной день (суббота или воскресенье)
             return None  # То торги не идут, торговой сессии нет
         t_market = dt_market.time()  # Время на бирже
         for session in self.trade_sessions:  # Пробегаемся по всем торговым сессиям
@@ -39,7 +40,7 @@ class Schedule:
         :param datetime dt_market: Дата и время на бирже
         :return: Дата и время окончания предыдущей торговой сессии
         """
-        if dt_market.weekday() in (5, 6):  # Если выходной день
+        if dt_market.weekday() in (5, 6):  # Если выходной день (суббота или воскресенье)
             return datetime.combine((dt_market - timedelta(days=dt_market.weekday()-4)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии пятницы
         t_market = dt_market.time()  # Время на бирже
         if dt_market.weekday() == 0 and t_market < self.trade_sessions[0].time_begin:  # Если утро понедельника до начала торгов
