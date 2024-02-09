@@ -1,5 +1,5 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 from threading import Thread, Event
 
 from MarketPy.Schedule import Schedule, MOEXStocks, MOEXFutures
