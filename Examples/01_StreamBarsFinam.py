@@ -33,7 +33,7 @@ def stream_bars(board, code, schedule, tf):
         logger.debug(f'Текущее время на бирже: {market_datetime_now.strftime("%d.%m.%Y %H:%M:%S")}')
         trade_bar_open_datetime = schedule.trade_bar_open_datetime(market_datetime_now, tf)  # Дата и время открытия бара, который будем получать
         logger.debug(f'Нужно получить бар: {trade_bar_open_datetime.strftime("%d.%m.%Y %H:%M:%S")}')
-        trade_bar_request_datetime = schedule.trade_bar_request_datetime(trade_bar_open_datetime, tf)  # Дата и время запроса бара на бирже
+        trade_bar_request_datetime = schedule.trade_bar_request_datetime(market_datetime_now, tf)  # Дата и время запроса бара на бирже
         logger.debug(f'Время запроса бара: {trade_bar_request_datetime.strftime("%d.%m.%Y %H:%M:%S")}')
         sleep_time_secs = (trade_bar_request_datetime - market_datetime_now).total_seconds()  # Время ожидания в секундах
         logger.debug(f'Ожидание в секундах: {sleep_time_secs}')

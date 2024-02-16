@@ -80,8 +80,8 @@ class Schedule:
             session = self.trade_sessions[0]  # Будет первая торговая сессия
             d_market += timedelta(1)  # Следующего дня
         w_market = d_market.weekday()  # День недели даты на бирже
-        if w_market in (5, 6):  # Если биржа на выходных не работает, и задан выходной день
-            d_market += timedelta(7 - w_market)  # То будем ждать первой торговой сессии понедельника
+        if w_market in (5, 6):  # Если задан выходной день
+            d_market += timedelta(7 - w_market)  # то будем ждать первой торговой сессии понедельника
         dt_next_session = datetime(d_market.year, d_market.month, d_market.day, session.time_begin.hour, session.time_begin.minute, session.time_begin.second)
         return dt_next_session - dt_market
 
@@ -100,18 +100,24 @@ class Schedule:
         if tf_timeframe == 'W':  # Недельный временной интервал
             market_date = datetime.combine(dt_market.date(), datetime.min.time())  # Дата на бирже без времени
             return market_date - timedelta(days=market_date.weekday())  # Вычитаем кол-во дней, прошедших с пн. Крайний понедельник
-        session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
-        if not session:  # Если на заданные дату и время на бирже перерыв
-            dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
-            session = self.trade_session(dt_market)  # Получаем эту сессию
         if tf_timeframe == 'D':  # Дневной временной интервал
-            return datetime.combine(dt_market.date(), datetime.min.time())  # Сегодняшняя дата или предыдущей торговой сессии
-        if tf_timeframe == 'M':  # Минутный временной интервал
+            market_date = dt_market + timedelta(days=(-1 if dt_market.time() < self.trade_sessions[0].time_begin else 0))  # До открытия первой торговой сессии берем бар предыдущего дня
+            market_date = datetime.combine(market_date.date(), datetime.min.time())  # Сегодняшняя или вчерашняя дата
+        elif tf_timeframe == 'M':  # Минутный временной интервал
+            session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
+            if not session:  # Если на заданные дату и время на бирже перерыв
+                dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
+                session = self.trade_session(dt_market)  # Получаем эту сессию
             dt_session_begin = datetime.combine(dt_market.date(), session.time_begin)  # Дата и время начала торговой сессии
             session_seconds = (dt_market - dt_session_begin).total_seconds()  # Время от начала сессии в секундах
             bars_count = session_seconds // (tf_compression * 60)  # Кол-во баров с заданным интервалом от начала сессии
-            return dt_session_begin + timedelta(minutes=tf_compression * bars_count)  # Смещаем на начало последнего бара
-        raise NotImplementedError  # С часовым графиком H не работаем. Заменяем минутным. Пример: H1 = M60
+            market_date = dt_session_begin + timedelta(minutes=tf_compression * bars_count)  # Смещаем на начало последнего бара
+        else:  # С часовым графиком H не работаем. Заменяем минутным. Пример: H1 = M60
+            raise NotImplementedError
+        w_market = market_date.weekday()  # День недели даты на бирже
+        if w_market in (5, 6):  # Если задан выходной день
+            market_date += timedelta(w_market - 4)  # то смещаемся на предыдущую пятницу
+        return market_date
 
     def trade_bar_close_datetime(self, dt_market, tf) -> datetime:
         """Дата и время закрытия последнего закрытого или открытого бара по дате и времени на бирже с временнЫм интервалом
@@ -130,28 +136,22 @@ class Schedule:
         if tf_timeframe == 'W':  # Недельный временной интервал
             market_date = datetime.combine(dt_market.date(), datetime.min.time())  # Дата на бирже без времени
             return market_date + timedelta(weeks=1, days=-market_date.weekday())  # Добавляем неделю. Вычитаем кол-во дней, прошедших с пн. Следующий понедельник
-        session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
-        if not session:  # Если на заданные дату и время на бирже перерыв
-            dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
-            session = self.trade_session(dt_market)  # Получаем эту сессию
+        dt_open = self.trade_bar_open_datetime(dt_market, tf)  # Дата и время открытия бара
         if tf_timeframe == 'D':  # Дневной временной интервал
-            return datetime.combine((dt_market + timedelta(days=1)).date(), datetime.min.time())  # Завтрашняя дата сегодняшней или следующей за предыдущей торговой сессией
+            return dt_open + timedelta(days=1)  # Завтрашняя дата
         if tf_timeframe == 'M':  # Минутный временной интервал
-            dt_session_begin = datetime.combine(dt_market.date(), session.time_begin)  # Дата и время начала торговой сессии
-            session_seconds = (dt_market - dt_session_begin).total_seconds()  # Время от начала сессии в секундах
-            bars_count = session_seconds // (tf_compression * 60)  # Кол-во баров с заданным интервалом от начала сессии
-            return dt_session_begin + timedelta(minutes=tf_compression * (bars_count + 1))  # Смещаем на конец последнего бара
+            return dt_open + timedelta(minutes=tf_compression)  # Через минуты интервала
         raise NotImplementedError  # С часовым графиком H не работаем. Заменяем минутным. Пример: H1 = M60
 
-    def trade_bar_request_datetime(self, dt_open, tf) -> datetime:
+    def trade_bar_request_datetime(self, dt_market, tf) -> datetime:
         """Дата и время запроса бара на бирже. Если идет торговая сессия, то на открытии следующего бара. В перерывах - в начале следующей сессии
 
-        :param datetime dt_open: Дата и время открытия бара
+        :param datetime dt_market: Дата и время на бирже
         :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
         :return: Дата и время запроса бара на бирже
         """
-        dt = self.trade_bar_close_datetime(dt_open, tf)  # По дате открытия бара получаем дату закрытия
-        return dt + timedelta(seconds=self.time_until_trade(dt).total_seconds()) + self.delta  # Если дата закрытия попадает в перерыве, то добавляем время до начала следующей сессии. Добавляем задержку
+        dt_close = self.trade_bar_close_datetime(dt_market, tf)  # Получаем дату и время закрытия бара на бирже
+        return dt_close + timedelta(seconds=self.time_until_trade(dt_close).total_seconds()) + self.delta  # Если дата и время закрытия попадает в перерыве, то добавляем время до начала следующей сессии. Добавляем задержку
 
     @staticmethod
     def parse_tf(tf) -> Tuple[str, int, bool]:
