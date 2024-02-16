@@ -112,6 +112,8 @@ class Schedule:
             session_seconds = (dt_market - dt_session_begin).total_seconds()  # Время от начала сессии в секундах
             bars_count = session_seconds // (tf_compression * 60)  # Кол-во баров с заданным интервалом от начала сессии
             market_date = dt_session_begin + timedelta(minutes=tf_compression * bars_count)  # Смещаем на начало последнего бара
+            if tf_compression > market_date.minute:  # Если временной интервал больше, чем минуты начала сессии. Например, часовой бар с сессией с 19:05
+                market_date = market_date.replace(minute=0)  # То считаем его с начала часа
         else:  # С часовым графиком H не работаем. Заменяем минутным. Пример: H1 = M60
             raise NotImplementedError
         w_market = market_date.weekday()  # День недели даты на бирже
