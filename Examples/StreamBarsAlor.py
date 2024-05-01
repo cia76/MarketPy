@@ -11,33 +11,33 @@ logger = logging.getLogger('Schedule.StreamBarsAlor')  # Будем вести �
 
 
 # noinspection PyShadowingNames
-def stream_bars(board, symbol, schedule, tf):
+def stream_bars(class_code, security_code, schedule, tf):
     """Поток получения новых бар по расписанию биржи
 
-    :param str board: Код режима торгов
-    :param str symbol: Тикер
+    :param str class_code: Код режима торгов
+    :param str security_code: Код тикера
     :param Schedule schedule: Расписание торгов
     :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
     """
     ap_provider = AlorPy()  # Провайдер Alor
     tf_alor, _ = ap_provider.timeframe_to_alor_timeframe(tf)  # Временной интервал Алор
-    exchange = ap_provider.get_exchange(board, symbol)  # Биржа, где торгуется тикер
+    exchange = ap_provider.get_exchange(class_code, security_code)  # Биржа, где торгуется тикер
+    si = ap_provider.get_symbol(exchange, security_code)  # Получаем информацию о тикере
     while True:
         market_datetime_now = schedule.utc_to_msk_datetime(datetime.utcnow())  # Текущее время на бирже
-        logger.debug(f'Текущее время на бирже: {market_datetime_now.strftime("%d.%m.%Y %H:%M:%S")}')
+        logger.debug(f'Текущая дата и время на бирже: {market_datetime_now:d.%m.%Y %H:%M:%S}')
         trade_bar_open_datetime = schedule.trade_bar_open_datetime(market_datetime_now, tf)  # Дата и время открытия бара, который будем получать
-        logger.debug(f'Нужно получить бар: {trade_bar_open_datetime.strftime("%d.%m.%Y %H:%M:%S")}')
+        logger.debug(f'Нужно получить бар: {trade_bar_open_datetime:%d.%m.%Y %H:%M:%S}')
         trade_bar_request_datetime = schedule.trade_bar_request_datetime(market_datetime_now, tf)  # Дата и время запроса бара на бирже
-        logger.debug(f'Время запроса бара: {trade_bar_request_datetime.strftime("%d.%m.%Y %H:%M:%S")}')
+        logger.debug(f'Время запроса бара: {trade_bar_request_datetime:%d.%m.%Y %H:%M:%S}')
         sleep_time_secs = (trade_bar_request_datetime - market_datetime_now).total_seconds()  # Время ожидания в секундах
         logger.debug(f'Ожидание в секундах: {sleep_time_secs}')
         exit_event_set = exit_event.wait(sleep_time_secs)  # Ждем нового бара или события выхода из потока
         if exit_event_set:  # Если произошло событие выхода из потока
             ap_provider.close_web_socket()  # Перед выходом закрываем соединение с WebSocket
             return  # Выходим из потока, дальше не продолжаем
-
         seconds_from = schedule.msk_datetime_to_utc_timestamp(trade_bar_open_datetime)  # Дата и время бара в timestamp UTC
-        bars = ap_provider.get_history(exchange, symbol, tf_alor, seconds_from)  # Получаем ответ на запрос истории рынка
+        bars = ap_provider.get_history(exchange, security_code, tf_alor, seconds_from)  # Получаем ответ на запрос истории рынка
         if not bars:  # Если ничего не получили
             logger.warning('Данные не получены')
             continue  # Будем получать следующий бар
@@ -46,15 +46,14 @@ def stream_bars(board, symbol, schedule, tf):
         if len(bars) == 0:  # Если бары не получены
             logger.warning('Бар не получен')
             continue  # Будем получать следующий бар
-
         bar = bars[0]  # Получаем первый (завершенный) бар
         dt = schedule.utc_timestamp_to_msk_datetime(int(bar['time']))
         open_ = float(bar['open'])
         high = float(bar['high'])
         low = float(bar['low'])
         close = float(bar['close'])
-        volume = int(bar['volume'])
-        logger.info(f'Получен бар: {board}.{symbol} ({tf}/{tf_alor}) - {dt.strftime("%d.%m.%Y %H:%M:%S")} - Open = {open_}, High = {high}, Low = {low}, Close = {close}, Volume = {volume}')
+        volume = int(bar['volume'] * si['lotsize'])
+        logger.info(f'Получен бар: {class_code}.{security_code} ({tf}/{tf_alor}) - {dt:%d.%m.%Y %H:%M:%S} - Open = {open_}, High = {high}, Low = {low}, Close = {close}, Volume = {volume}')
 
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
