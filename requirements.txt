@@ -1,1 +1,2 @@
 pytz
+protobuf>=5.26.0
