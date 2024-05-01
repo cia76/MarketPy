@@ -5,7 +5,6 @@ from threading import Thread, Event
 from MarketPy.Schedule import Schedule, MOEXStocks, MOEXFutures
 
 from TinkoffPy import TinkoffPy  # Работа с Tinkoff Invest API из Python
-from TinkoffPy.Config import Config  # Файл конфигурации
 
 from TinkoffPy.grpc.marketdata_pb2 import GetCandlesRequest
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -24,7 +23,7 @@ def stream_bars(class_code, security_code, schedule, tf):
     :param Schedule schedule: Расписание торгов
     :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
     """
-    tp_provider = TinkoffPy(Config.Token)  # Провайдер Tinkoff
+    tp_provider = TinkoffPy()  # Провайдер Tinkoff
     tf_tinkoff, intraday = tp_provider.timeframe_to_tinkoff_timeframe(tf)  # Временной интервал Финам, внутридневной интервал
     figi = tp_provider.get_symbol_info(class_code, security_code).figi  # Уникальный код тикера
     while True:
@@ -47,7 +46,7 @@ def stream_bars(class_code, security_code, schedule, tf):
         request = GetCandlesRequest(instrument_id=figi, to=ts_to, interval=tf_tinkoff)  # Запрос на получение бар
         from_ = getattr(request, 'from')  # т.к. from - ключевое слово в Python, то получаем атрибут from из атрибута интервала
         from_.seconds = ts_from.seconds
-        bars = MessageToDict(tp_provider.call_function(tp_provider.stub_marketdata.GetCandles, request), including_default_value_fields=True)  # Получаем бары, переводим в словарь/список
+        bars = MessageToDict(tp_provider.call_function(tp_provider.stub_marketdata.GetCandles, request), always_print_fields_with_no_presence=True)  # Получаем бары, переводим в словарь/список
         if not bars:  # Если ничего не получили
             logger.warning('Данные не получены')
             continue  # Будем получать следующий бар
