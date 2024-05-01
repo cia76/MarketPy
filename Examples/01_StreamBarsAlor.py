@@ -5,7 +5,6 @@ from threading import Thread, Event
 from MarketPy.Schedule import Schedule, MOEXStocks, MOEXFutures
 
 from AlorPy import AlorPy  # Работа с Alor OpenAPI V2
-from AlorPy.Config import Config  # Файл конфигурации
 
 
 logger = logging.getLogger('Schedule.StreamBarsAlor')  # Будем вести лог
@@ -20,7 +19,7 @@ def stream_bars(board, symbol, schedule, tf):
     :param Schedule schedule: Расписание торгов
     :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
     """
-    ap_provider = AlorPy(Config.UserName, Config.RefreshToken)  # Провайдер Alor
+    ap_provider = AlorPy()  # Провайдер Alor
     tf_alor, _ = ap_provider.timeframe_to_alor_timeframe(tf)  # Временной интервал Алор
     exchange = ap_provider.get_exchange(board, symbol)  # Биржа, где торгуется тикер
     while True:
