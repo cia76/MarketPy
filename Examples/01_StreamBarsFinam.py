@@ -5,10 +5,9 @@ from threading import Thread, Event
 from MarketPy.Schedule import Schedule, MOEXStocks, MOEXFutures
 
 from FinamPy import FinamPy  # Работа с сервером TRANSAQ
-from FinamPy.Config import Config  # Файл конфигурации
 
-from FinamPy.proto.tradeapi.v1.candles_pb2 import DayCandleInterval, IntradayCandleInterval
-from google.type.date_pb2 import Date
+from FinamPy.proto.candles_pb2 import DayCandleInterval, IntradayCandleInterval
+from FinamPy.proto.google.type.date_pb2 import Date
 from google.protobuf.timestamp_pb2 import Timestamp
 from google.protobuf.json_format import MessageToDict
 
@@ -25,7 +24,7 @@ def stream_bars(board, code, schedule, tf):
     :param Schedule schedule: Расписание торгов
     :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
     """
-    fp_provider = FinamPy(Config.AccessToken)  # Провайдер Finam
+    fp_provider = FinamPy()  # Провайдер Finam
     tf_finam, intraday = fp_provider.timeframe_to_finam_timeframe(tf)  # Временной интервал Финам, внутридневной интервал
     interval = IntradayCandleInterval(count=1) if intraday else DayCandleInterval(count=1)  # Принимаем последний завершенный бар
     while True:
@@ -55,7 +54,7 @@ def stream_bars(board, code, schedule, tf):
             from_.day = date_from.day
         bars = MessageToDict(fp_provider.get_intraday_candles(board, code, tf_finam, interval) if intraday else
                              fp_provider.get_day_candles(board, code, tf_finam, interval),
-                             including_default_value_fields=True)  # Получаем ответ на запрос истории рынка
+                             always_print_fields_with_no_presence=True)  # Получаем ответ на запрос истории рынка
         if not bars:  # Если ничего не получили
             logger.warning('Данные не получены')
             continue  # Будем получать следующий бар
