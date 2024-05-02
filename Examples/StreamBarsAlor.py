@@ -25,7 +25,7 @@ def stream_bars(class_code, security_code, schedule, tf):
     si = ap_provider.get_symbol(exchange, security_code)  # Получаем информацию о тикере
     while True:
         market_datetime_now = schedule.utc_to_msk_datetime(datetime.utcnow())  # Текущее время на бирже
-        logger.debug(f'Текущая дата и время на бирже: {market_datetime_now:d.%m.%Y %H:%M:%S}')
+        logger.debug(f'Текущая дата и время на бирже: {market_datetime_now:%d.%m.%Y %H:%M:%S}')
         trade_bar_open_datetime = schedule.trade_bar_open_datetime(market_datetime_now, tf)  # Дата и время открытия бара, который будем получать
         logger.debug(f'Нужно получить бар: {trade_bar_open_datetime:%d.%m.%Y %H:%M:%S}')
         trade_bar_request_datetime = schedule.trade_bar_request_datetime(market_datetime_now, tf)  # Дата и время запроса бара на бирже
