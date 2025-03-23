@@ -16,8 +16,9 @@ class Session:
 
 
 class Schedule:
-    """Расписание торгов"""
+    """Расписание торгов биржи"""
     market_timezone = timezone('Europe/Moscow')  # ВременнАя зона работы биржи
+    dt_format = '%d.%m.%Y %H:%M:%S'  # Российский формат отображения даты и времени
 
     def __init__(self, trade_sessions, delta):
         """
@@ -31,15 +32,11 @@ class Schedule:
         """Торговая сессия по дате и времени на бирже. None, если торги не идут
 
         :param datetime dt_market: Дата и время на бирже
-        :return: Дата и время на бирже. None, если торги не идут
+        :return: Торговая сессия на бирже. None, если торги не идут
         """
         if dt_market.weekday() in (5, 6):  # Если задан выходной день (суббота или воскресенье)
             return None  # То торги не идут, торговой сессии нет
-        t_market = dt_market.time()  # Время на бирже
-        for session in self.trade_sessions:  # Пробегаемся по всем торговым сессиям
-            if session.time_begin <= t_market <= session.time_end:  # Если время внутри сессии
-                return session  # Возвращаем найденную торговую сессию
-        return None  # Если время попадает в клиринг/перерыв, то торговой сессии нет
+        return next((session for session in self.trade_sessions if session.time_begin <= dt_market.time() <= session.time_end), None)  # Возвращаем торговую сессию, если время внутри сессии
 
     def last_session_time_end(self, dt_market) -> datetime:
         """Дата и время окончания предыдущей торговой сессии по дате и времени на бирже
@@ -99,14 +96,14 @@ class Schedule:
         if tf_timeframe == 'W':  # Недельный временной интервал
             market_date = datetime.combine(dt_market.date(), datetime.min.time())  # Дата на бирже без времени
             return market_date - timedelta(days=market_date.weekday())  # Вычитаем кол-во дней, прошедших с пн. Крайний понедельник
+
+        session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
+        if not session:  # Если на заданные дату и время на бирже перерыв
+            dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
         if tf_timeframe == 'D':  # Дневной временной интервал
-            market_date = dt_market + timedelta(days=(-1 if dt_market.time() < self.trade_sessions[0].time_begin else 0))  # До открытия первой торговой сессии берем бар предыдущего дня
-            market_date = datetime.combine(market_date.date(), datetime.min.time())  # Сегодняшняя или вчерашняя дата
+            market_date = datetime.combine(dt_market.date(), datetime.min.time())  # Сегодняшняя или вчерашняя дата
         elif tf_timeframe == 'M':  # Минутный временной интервал
-            session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
-            if not session:  # Если на заданные дату и время на бирже перерыв
-                dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
-                session = self.trade_session(dt_market)  # Получаем эту сессию
+            session = self.trade_session(dt_market)  # Получаем текущую или прошлую торговую сессию
             dt_session_begin = datetime.combine(dt_market.date(), session.time_begin)  # Дата и время начала торговой сессии
             if tf_compression > 5:  # Некоторые сессии начинаются в hh:05 Для интервалов более 5-и минут считаем, что сессия начинается в hh:00
                 dt_session_begin = dt_session_begin.replace(minute=0)
@@ -209,11 +206,22 @@ class Schedule:
 
 
 class MOEXStocks(Schedule):
-    """Расписание торгов Московской Биржи: Фондовый рынок"""
+    """Расписание торгов Московской Биржи: Фондовый рынок - Акции"""
     def __init__(self):
         super(MOEXStocks, self).__init__([
-            Session(time(10, 0, 0), time(18, 39, 59)),  # Основная торговая сессия
-            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя торговая сессия
+            Session(time(7, 0, 0), time(9, 49, 59)),  # Утренняя сессия
+            Session(time(9, 50, 0), time(18, 39, 59)),  # Основная сессия
+            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя сессия
+        ], timedelta(seconds=3))  # Задержка 3 секунды, чтобы гарантированно получить бар
+
+
+class MOEXBonds(Schedule):
+    """Расписание торгов Московской Биржи: Фондовый рынок - Облигации"""
+    def __init__(self):
+        super(MOEXBonds, self).__init__([
+            Session(time(9, 0, 0), time(9, 49, 59)),  # Утренняя сессия
+            Session(time(10, 0, 0), time(18, 39, 59)),  # Основная сессия
+            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя сессия
         ], timedelta(seconds=3))  # Задержка 3 секунды, чтобы гарантированно получить бар
 
 
@@ -229,15 +237,27 @@ class MOEXFutures(Schedule):
 
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
-    schedule = MOEXFutures()
-    # market_dt = datetime(2024, 5, 1, 10, 1)  # Биржа работает
-    # market_dt = datetime(2024, 5, 1, 14, 1)  # Перерыв на бирже
-    market_dt = datetime(2024, 5, 1, 15, 1)  # Бар не с начала часа
-    market_tf = 'M60'
-    print(f'Дата и время на бирже: {market_dt:%d.%m.%Y %H:%M:%S}')
-    trade_bar_open_datetime = schedule.trade_bar_open_datetime(market_dt, market_tf)  # Дата и время открытия бара, который будем получать
-    print(f'Нужно получить бар: {trade_bar_open_datetime:%d.%m.%Y %H:%M:%S}')
-    trade_bar_request_datetime = schedule.trade_bar_request_datetime(market_dt, market_tf)  # Дата и время запроса бара на бирже
-    print(f'Время запроса бара: {trade_bar_request_datetime:%d.%m.%Y %H:%M:%S}')
-    sleep_time_secs = (trade_bar_request_datetime - market_dt).total_seconds()  # Время ожидания в секундах
-    print(f'Ожидание в секундах: {sleep_time_secs}')
+    schedule = MOEXStocks()  # Расписание торгов акций
+
+    # market_tf = 'D1'  # Временной интервал
+    market_tf = 'M60'  # Временной интервал
+    # market_dt = datetime(2025, 3, 22)  # Выходной на бирже (сб)
+    # market_dt = datetime(2025, 3, 23)  # Выходной на бирже (вс)
+    # market_dt = datetime(2025, 3, 24, 6, 59, 59)  # Перерыв на бирже (утро пн)
+    # market_dt = datetime(2025, 3, 24, 7, 0)  # Биржа работает (открытие пн)
+    market_dt = datetime(2025, 3, 24, 18, 40)  # Перерыв на бирже (аукцион закрытия)
+    # market_dt = schedule.utc_to_msk_datetime(datetime.utcnow())
+
+    print(f'Дата и время на бирже : {market_dt:{schedule.dt_format}}')
+    session = schedule.trade_session(market_dt)  # Торговая сессия
+    str_session = f'{session.time_begin} - {session.time_end}' if session else 'Нет'
+    print(f'Торговая сессия       : {str_session}')
+    print(f'Временной интервал    : {market_tf}')
+    trade_bar_open_datetime = schedule.trade_bar_open_datetime(market_dt, market_tf)  # Дата и время открытия следующего бара
+    print(f'Следующий бар         : {trade_bar_open_datetime:{schedule.dt_format}}')
+    trade_bar_request_datetime = schedule.trade_bar_request_datetime(market_dt, market_tf)  # Дата и время запроса бара
+    print(f'Дата и время запроса  : {trade_bar_request_datetime:{schedule.dt_format}}')
+    sleep_time_secs = int((trade_bar_request_datetime - market_dt).total_seconds())  # Время ожидания до запроса в секундах
+    print(f'Секунд до запроса     : {sleep_time_secs}')
+    trade_bar_valid_to_datetime = schedule.trade_bar_close_datetime(trade_bar_request_datetime, market_tf)
+    print(f'Действителен до       : {trade_bar_valid_to_datetime:{schedule.dt_format}}')
