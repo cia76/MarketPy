@@ -238,6 +238,7 @@ class MOEXFutures(Schedule):
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
     schedule = MOEXStocks()  # Расписание торгов акций
+    # schedule = MOEXFutures()  # Расписание торгов срочного рынка
 
     # market_tf = 'D1'  # Временной интервал
     market_tf = 'M60'  # Временной интервал
@@ -245,8 +246,8 @@ if __name__ == '__main__':  # Точка входа при запуске это
     # market_dt = datetime(2025, 3, 23)  # Выходной на бирже (вс)
     # market_dt = datetime(2025, 3, 24, 6, 59, 59)  # Перерыв на бирже (утро пн)
     # market_dt = datetime(2025, 3, 24, 7, 0)  # Биржа работает (открытие пн)
-    market_dt = datetime(2025, 3, 24, 18, 40)  # Перерыв на бирже (аукцион закрытия)
-    # market_dt = schedule.utc_to_msk_datetime(datetime.utcnow())
+    # market_dt = datetime(2025, 3, 24, 18, 40)  # Перерыв на бирже (аукцион закрытия)
+    market_dt = schedule.utc_to_msk_datetime(datetime.utcnow())
 
     print(f'Дата и время на бирже : {market_dt:{schedule.dt_format}}')
     session = schedule.trade_session(market_dt)  # Торговая сессия
@@ -259,5 +260,5 @@ if __name__ == '__main__':  # Точка входа при запуске это
     print(f'Дата и время запроса  : {trade_bar_request_datetime:{schedule.dt_format}}')
     sleep_time_secs = int((trade_bar_request_datetime - market_dt).total_seconds())  # Время ожидания до запроса в секундах
     print(f'Секунд до запроса     : {sleep_time_secs}')
-    trade_bar_valid_to_datetime = schedule.trade_bar_close_datetime(trade_bar_request_datetime, market_tf)
+    trade_bar_valid_to_datetime = schedule.trade_bar_close_datetime(trade_bar_request_datetime, market_tf)  # Время, до которого этот бар последний
     print(f'Действителен до       : {trade_bar_valid_to_datetime:{schedule.dt_format}}')
