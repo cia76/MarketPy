@@ -58,7 +58,7 @@ class Schedule:
             return datetime.combine((dt_market - timedelta(days=1)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии вчера
         return datetime.combine(dt_market.date(), self.trade_sessions[i].time_end)  # Окончание последней сессии сегодня
 
-    def time_until_trade(self, dt_market: datetime) -> timedelta:
+    def time_until_trade(self, dt_market) -> timedelta:
         """Время, через которое можно будет торговать
 
         :param datetime dt_market: Дата и время на бирже
@@ -151,14 +151,14 @@ class Schedule:
         :return: Дата и время запроса бара на бирже
         """
         dt_close = self.trade_bar_close_datetime(dt_market, tf)  # Получаем дату и время закрытия бара на бирже
-        return dt_close + timedelta(seconds=self.time_until_trade(dt_close).total_seconds()) + self.delta  # Если дата и время закрытия попадает в перерыве, то добавляем время до начала следующей сессии. Добавляем задержку
+        return dt_close + timedelta(seconds=self.time_until_trade(dt_close).total_seconds()) + self.delta  # Если дата и время закрытия попадает в перерыв, то добавляем время до начала следующей сессии. Добавляем задержку
 
     @staticmethod
     def parse_tf(tf) -> Tuple[str, int, bool]:
         """Разбор временнОго интервала на период, размер, является ли внутридневным интервалом
 
         :param str tf: Временной интервал https://ru.wikipedia.org/wiki/Таймфрейм
-        :return: Период и размер временнОго интрервала
+        :return: Период, размер и признак внутридневного временнОго интрервала
         """
         if 'MN' in tf:  # Сначала разбираем месяц, т.к. если начать с минут M, то месяц MN также разберется как минуты
             return tf[0:2], int(tf[2:]), False  # В периоде будет 2 символа. Интервал переводим в целое. Не внутридневной интервал
@@ -240,8 +240,9 @@ if __name__ == '__main__':  # Точка входа при запуске это
     schedule = MOEXStocks()  # Расписание торгов акций
     # schedule = MOEXFutures()  # Расписание торгов срочного рынка
 
-    # market_tf = 'D1'  # Временной интервал
-    market_tf = 'M60'  # Временной интервал
+    market_tf = 'D1'  # Временной интервал
+    # market_tf = 'M60'  # Временной интервал
+    # market_dt = datetime(2025, 3, 21)  # Выходной на бирже (сб)
     # market_dt = datetime(2025, 3, 22)  # Выходной на бирже (сб)
     # market_dt = datetime(2025, 3, 23)  # Выходной на бирже (вс)
     # market_dt = datetime(2025, 3, 24, 6, 59, 59)  # Перерыв на бирже (утро пн)
