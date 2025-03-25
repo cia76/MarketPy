@@ -164,6 +164,11 @@ class Schedule:
             return tf[0:2], int(tf[2:]), False  # В периоде будет 2 символа. Интервал переводим в целое. Не внутридневной интервал
         return tf[0], int(tf[1:]), tf[0] == 'M'  # В остальных случаях в периоде будет 1 символ. Интервал переводим в целое. Минутный интервал внутридневной. Остальные - нет
 
+    @property
+    def market_datetime_now(self) -> datetime:
+        """Текущее время биржи"""
+        return self.utc_to_msk_datetime(datetime.utcnow()).replace(microsecond=0)  # Текущее время МСК с точностью до секунды (без микросекунд)
+
     def utc_to_msk_datetime(self, dt, tzinfo=False) -> datetime:
         """Перевод времени из UTC в московское
 
