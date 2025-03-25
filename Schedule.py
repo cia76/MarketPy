@@ -23,10 +23,12 @@ class Schedule:
     def __init__(self, trade_sessions, delta):
         """
         :param list[Session] trade_sessions: Список торговых сессий
-        :param timedelta delta: Задержка, чтобы гарантированно получить сформированный бар
+        :param timedelta delta: Время от закрытия бара, чтобы гарантированно получить сформированный бар
         """
         self.trade_sessions = sorted(trade_sessions, key=lambda session: session.time_begin)  # Список торговых сессий сортируем по возрастанию времени начала сессии
-        self.delta = delta  # Задержка, чтобы гарантированно получить сформированный бар
+        self.market_time_begin = self.trade_sessions[0].time_begin  # Время открытия биржи = время начала первой торговой сессии
+        self.market_time_end = self.trade_sessions[-1].time_end  # Время закрытия биржи = время окончания последней торговой сессии
+        self.delta = delta  # Время от закрытия бара
 
     def trade_session(self, dt_market) -> Union[Session, None]:
         """Торговая сессия по дате и времени на бирже. None, если торги не идут
@@ -45,17 +47,17 @@ class Schedule:
         :return: Дата и время окончания предыдущей торговой сессии
         """
         if dt_market.weekday() in (5, 6):  # Если выходной день (суббота или воскресенье)
-            return datetime.combine((dt_market - timedelta(days=dt_market.weekday()-4)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии пятницы
+            return datetime.combine((dt_market - timedelta(days=dt_market.weekday()-4)).date(), self.market_time_end)  # то окончание последней сессии пятницы
         t_market = dt_market.time()  # Время на бирже
-        if dt_market.weekday() == 0 and t_market < self.trade_sessions[0].time_begin:  # Если утро понедельника до начала торгов
-            return datetime.combine((dt_market - timedelta(days=3)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии пятницы
+        if dt_market.weekday() == 0 and t_market < self.market_time_begin:  # Если утро понедельника до начала торгов
+            return datetime.combine((dt_market - timedelta(days=3)).date(), self.market_time_end)  # то окончание последней сессии пятницы
         i = -1  # Номер сессии, до которой не дошло время на бирже
         for session in self.trade_sessions:  # Пробегаемся по всем торговым сессиям
-            if t_market < session.time_end:  # Если время на бирже не дошло до времени начала сессии
+            if t_market < session.time_end:  # Если время на бирже не дошло до времени окончания сессии
                 break  # то сессия найдена, выходим, больше не ищем
             i += 1  # До этой сессии время на бирже дошло, переходим к следующей сессии
         if i == -1:  # Если последняя торговая сессия была вчера
-            return datetime.combine((dt_market - timedelta(days=1)).date(), self.trade_sessions[-1].time_end)  # то окончание последней сессии вчера
+            return datetime.combine((dt_market - timedelta(days=1)).date(), self.market_time_end)  # то окончание последней сессии вчера
         return datetime.combine(dt_market.date(), self.trade_sessions[i].time_end)  # Окончание последней сессии сегодня
 
     def time_until_trade(self, dt_market) -> timedelta:
@@ -96,7 +98,6 @@ class Schedule:
         if tf_timeframe == 'W':  # Недельный временной интервал
             market_date = datetime.combine(dt_market.date(), datetime.min.time())  # Дата на бирже без времени
             return market_date - timedelta(days=market_date.weekday())  # Вычитаем кол-во дней, прошедших с пн. Крайний понедельник
-
         session = self.trade_session(dt_market)  # Пробуем получить торговую сессию
         if not session:  # Если на заданные дату и время на бирже перерыв
             dt_market = self.last_session_time_end(dt_market)  # то смещаем их на дату и время окончания последней торговой сессии
