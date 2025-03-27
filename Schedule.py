@@ -20,7 +20,7 @@ class Schedule:
     market_timezone = timezone('Europe/Moscow')  # ВременнАя зона работы биржи
     dt_format = '%d.%m.%Y %H:%M:%S'  # Российский формат отображения даты и времени
 
-    def __init__(self, trade_sessions, delta=3):
+    def __init__(self, trade_sessions, delta=timedelta(seconds=3)):
         """
         :param list[Session] trade_sessions: Список торговых сессий
         :param timedelta delta: Допустимая разница рассинхронизации локальных и брокерских/биржевых часов в секундах
