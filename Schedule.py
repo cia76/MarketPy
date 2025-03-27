@@ -20,15 +20,15 @@ class Schedule:
     market_timezone = timezone('Europe/Moscow')  # ВременнАя зона работы биржи
     dt_format = '%d.%m.%Y %H:%M:%S'  # Российский формат отображения даты и времени
 
-    def __init__(self, trade_sessions, delta):
+    def __init__(self, trade_sessions, delta=3):
         """
         :param list[Session] trade_sessions: Список торговых сессий
-        :param timedelta delta: Время от закрытия бара, чтобы гарантированно получить сформированный бар
+        :param timedelta delta: Допустимая разница рассинхронизации локальных и брокерских/биржевых часов в секундах
         """
         self.trade_sessions = sorted(trade_sessions, key=lambda session: session.time_begin)  # Список торговых сессий сортируем по возрастанию времени начала сессии
         self.market_time_begin = self.trade_sessions[0].time_begin  # Время открытия биржи = время начала первой торговой сессии
         self.market_time_end = self.trade_sessions[-1].time_end  # Время закрытия биржи = время окончания последней торговой сессии
-        self.delta = delta  # Время от закрытия бара
+        self.delta = delta  # Допустимая разница рассинхронизации локальных и брокерских/биржевых часов в секундах
 
     def trade_session(self, dt_market) -> Union[Session, None]:
         """Торговая сессия по дате и времени на бирже. None, если торги не идут
@@ -212,34 +212,31 @@ class Schedule:
 
 
 class MOEXStocks(Schedule):
-    """Расписание торгов Московской Биржи: Фондовый рынок - Акции"""
+    """Расписание торгов Московской Биржи: Фондовый рынок - Акции https://www.moex.com/s1167"""
     def __init__(self):
         super(MOEXStocks, self).__init__([
             Session(time(7, 0, 0), time(9, 49, 59)),  # Утренняя сессия
             Session(time(9, 50, 0), time(18, 39, 59)),  # Основная сессия
-            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя сессия
-        ], timedelta(seconds=3))  # Задержка 3 секунды, чтобы гарантированно получить бар
+            Session(time(19, 5, 0), time(23, 49, 59))])  # Вечерняя сессия
 
 
 class MOEXBonds(Schedule):
-    """Расписание торгов Московской Биржи: Фондовый рынок - Облигации"""
+    """Расписание торгов Московской Биржи: Фондовый рынок - Облигации https://www.moex.com/s1167"""
     def __init__(self):
         super(MOEXBonds, self).__init__([
             Session(time(9, 0, 0), time(9, 49, 59)),  # Утренняя сессия
             Session(time(10, 0, 0), time(18, 39, 59)),  # Основная сессия
-            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя сессия
-        ], timedelta(seconds=3))  # Задержка 3 секунды, чтобы гарантированно получить бар
+            Session(time(19, 5, 0), time(23, 49, 59))])  # Вечерняя сессия
 
 
 class MOEXFutures(Schedule):
-    """Расписание торгов Московской Биржи: Срочный рынок"""
+    """Расписание торгов Московской Биржи: Срочный рынок https://www.moex.com/ru/derivatives/"""
     def __init__(self):
         super(MOEXFutures, self).__init__([
             Session(time(9, 0, 0), time(9, 59, 59)),  # Утренняя дополнительная торговая сессия
             Session(time(10, 0, 0), time(13, 59, 59)),  # Основная торговая сессия (Дневной расчетный период)
             Session(time(14, 5, 0), time(18, 49, 59)),  # Основная торговая сессия (Вечерний расчетный период)
-            Session(time(19, 5, 0), time(23, 49, 59))  # Вечерняя дополнительная торговая сессия
-        ], timedelta(seconds=3))  # Задержка 3 секунды, чтобы гарантированно получить бар
+            Session(time(19, 5, 0), time(23, 49, 59))])  # Вечерняя дополнительная торговая сессия
 
 
 if __name__ == '__main__':  # Точка входа при запуске этого скрипта
